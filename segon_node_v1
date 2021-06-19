@@ -1,0 +1,154 @@
+#! /usr/bin/env python
+
+
+import rospy
+import sys, os, time
+from rospy.impl.init import start_node
+import tf  
+from geometry_msgs .msg import Twist
+from sensor_msgs.msg    import LaserScan 
+from std_msgs.msg import Bool
+from std_msgs.msg import String
+
+
+
+class MoveForward(): 
+    def __init__(self): 
+        self.distance=0.8 
+        self.message =  Bool()
+        self.velocitat = Twist()
+        self.angulo = String()
+        self.angulo.data = 45
+        self.start=False
+        self.vueltas_sin_obstaculos=0
+
+        self.list_ranges = []
+        rospy.init_node('segon_node')
+
+        for i in range (0,719) :
+            self.list_ranges.append(0)
+
+        self.intrus = rospy.Publisher('/intruso',Bool, queue_size=1) # Datos del laser ///cmd_vel
+        rospy.Subscriber('/start_stop',String,self.start_stop)
+        rospy.Subscriber('/scan',LaserScan,self.lidar_detect) 
+        
+
+    def start_stop(self,msg):  ## S180 / P
+        inst=msg.data[0]
+        if inst=='S':
+            print("start")
+            self.start=True
+            self.angle=int(msg.data[1:])
+        elif inst=='P':
+            print("stop")
+            self.start=False
+
+    def map_angle(self,angle):
+        #(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+        #Ibra
+        angle_lidar=180-angle
+        if angle_lidar<0:
+            angle_lidar=360+angle_lidar
+        return angle_lidar*2
+
+    
+    def lidar_detect(self,scan):
+        #self.list_ranges = list(scan.ranges)[90]
+        #print(self.list_ranges)
+        
+        if self.start:
+            self.list_ranges = list(scan.ranges)
+            #print('Angle : ',self.angle)
+            dir=self.map_angle(self.angle)
+            #print('pos:',dir)
+            
+            if dir<60*2 :
+                miin = 718-120+(dir)
+                maax = dir+120
+                for k in range (miin,718) :
+                    if self.list_ranges[k] !=0 :
+                        self.test(self.list_ranges[k])
+                for k in range (0,maax) :
+                    if self.list_ranges[k] !=0 :
+                        self.test(self.list_ranges[k])
+            elif dir>300*2   :
+                maax = (dir)+120-718
+                miin = (dir)-120
+                for k in range (miin,718) :
+                    if self.list_ranges[k] !=0 :
+                        self.test(self.list_ranges[k])
+                for k in range (0,maax) :
+                    if self.list_ranges[k] !=0 :
+                        self.test(self.list_ranges[k])
+            else :
+                miin = (dir)-120
+                maax = (dir)+120
+                for k in range (miin,maax) :
+                    if self.list_ranges[k] !=0 :
+                        self.test(self.list_ranges[k])
+            print(miin,maax)
+        else:
+            pass
+        self.vueltas_sin_obstaculos+=1
+          
+    def test(self,sis) :
+        #print(sis)
+        #os.system('clear')
+        if sis < 0.6 :      #Obstacle
+            print('OBSTACLE')
+            self.vueltas_sin_obstaculos=0
+            if self.message.data == False:   #abans no hi havia obstacle
+                self.message.data = True
+                self.intrus.publish(self.message)
+
+        else :      #No Obstacle
+            if self.message.data == True and self.vueltas_sin_obstaculos==10:       #abans hi havia obstacle
+                self.message.data = False
+                self.intrus.publish(self.message)
+        
+
+if __name__ == '__main__':
+    try:
+        MoveForward() 
+        rospy.spin() 
+
+    except rospy.ROSInterruptException:
+        pass
+
+
+
+
+
+"""
+
+    def laser_callback(self,scan) :
+        self.list_ranges = list(scan.ranges)
+    def direction (self,ang) :
+        self.angulo.data = ang.data
+        print('Angle : ',int(ang.data))
+        dir = int(ang.data)
+        if dir<45 :
+            miin = 718-90+(dir*2)
+            maax = dir*2+90
+            for k in range (miin,718) :
+                if self.list_ranges[k] !=0 :
+                    self.test(self.list_ranges[k])
+            for k in range (1,maax) :
+                if self.list_ranges[k] !=0 :
+                    self.test(self.list_ranges[k])
+        elif dir>315   :
+            maax = (dir*2)+90-718
+            miin = (dir*2)-90
+            for k in range (miin,718) :
+                if self.list_ranges[k] !=0 :
+                    self.test(self.list_ranges[k])
+            for k in range (1,maax) :
+                if self.list_ranges[k] !=0 :
+                    self.test(self.list_ranges[k])
+        else :
+            miin = (dir*2)-90
+            maax = (dir*2)+90
+            for k in range (miin,maax) :
+                if self.list_ranges[k] !=0 :
+                    self.test(self.list_ranges[k])
+"""  
