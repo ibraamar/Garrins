@@ -1,0 +1,24 @@
+ 
+IF #suma THEN
+    #contador := #contador + 1;
+    #suma := 0;
+END_IF;
+
+
+
+"IEC_Timer_filtre_DB".TON(IN:="Polsador",
+                          PT:=T#300MS,
+                          Q=>#maq_on,
+                          ET=>#wait);
+
+
+"IEC_Timer_Retard_DB".TP(IN := #maq_on,
+                          PT := T#4S,
+                          Q => #suma,
+                          ET => #wait);
+ 
+
+ "IEC_Timer_Espera_DB_1".TOF(IN := #maq_on,
+                            PT := T#20S,
+                            Q => #maq_on,
+                            ET => #wait_2);
